@@ -104,7 +104,7 @@ make
 ### 2)  Redis 模式
 
 ```bash
-cmake -DCMAKE_BUILD_TYPE=Release -DWITH_REDIS=ON
+cmake -DCMAKE_BUILD_TYPE=Release -DWITH_REDIS=ON ..
 make
 
 # 运行
@@ -112,7 +112,7 @@ make
 ```
 ### 3) Redis + MySQL 模式（同时启用）
 ```bash
-cmake -DCMAKE_BUILD_TYPE=Release -DWITH_REDIS=ON -DWITH_MYSQL=ON       -DMUDUO_LIBRARIES="-lmuduo_net -lmuduo_base -lpthread"       -DOPENSSL_LIBRARIES="-lssl -lcrypto"       ..
+cmake -DCMAKE_BUILD_TYPE=Release -DWITH_REDIS=ON -DWITH_MYSQL=ON ..
 make
 
 # 运行
