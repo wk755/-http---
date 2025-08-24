@@ -1,0 +1,5 @@
+
+file(GLOB APP_SRC CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
+)
+target_sources(url_shortener PRIVATE ${APP_SRC})
