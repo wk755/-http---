@@ -231,4 +231,27 @@ wrk -t8 -c800 -d60s --timeout 10s --latency "http://127.0.0.1:8080/s/${HOT}"
 在限流与背压下，整体分位数被抬高；评估真实性能应以“仅成功请求”分布为准。在启用令牌桶限流策略的情况下，服务被稳定“卡”在 ~2.0k 成功 RPS；其余 ~2.9k RPS 按策略返回 403/429（Retry-After），系统在高压+背压场景下保持稳定无崩溃。
 <img width="2046" height="510" alt="image" src="https://github.com/user-attachments/assets/08fb88a2-3f66-49c3-95a2-11d8e9afc428" />
 
+## 可观测性
+现有观测点
+
+/healthz：存活探针
+GET 返回 200 ok。用来给 wrk 预热、K8s liveness/readiness 等。
+
+/metrics：Prometheus 文本格式指标
+由 app::Metrics::prometheus() 输出，直接可被 Prometheus 抓取。已有指标（部分）：
+
+url_shortener_shorten_ok / url_shortener_shorten_bad：短链创建 成功/失败总数
+
+url_shortener_redirect_ok / url_shortener_redirect_miss：跳转 成功/未命中（404）总数
+
+url_shortener_ratelimit_drops：被限流丢弃的请求数
+
+url_shortener_cache_hits / url_shortener_cache_sets：HTTP 层 LRU 缓存 命中/写入
+
+store_get_hit / store_get_miss / store_setnx_ok / store_setnx_conflict：底层存储命中/冲突等
+
+这些都在 apps/url_shortener/include/app/Metrics.h 里定义并在 /metrics 暴露。
+
+日志：Muduo 风格的 INFO/ERROR（连接建立/移除、EPIPE、限流返回等）。压测时建议把连接级别日志降噪或重定向到文件，避免干扰延迟。
+
 
