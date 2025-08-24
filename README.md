@@ -118,6 +118,21 @@ make
 # 运行
 ./build/url_shortener 8080
 ```
+### 链接过程：
+启动服务器后，运行
+```bash
+ID=$(curl -s -X POST 'http://127.0.0.1:8080/api/shorten' \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com/demo?ts='"$(date +%s)"'","ttl":600}' | jq -r '.id')
+echo "$ID"
+```
+创建短链接，得到ID，然后连接ID跳转服务
+```bash
+curl -i "http://127.0.0.1:8080/s/$ID" 
+```
+<img width="2070" height="1062" alt="image" src="https://github.com/user-attachments/assets/04624fca-0ea8-405f-9e38-1483a8c10e54" />
+
+## 性能与压测 
 
 
 
