@@ -133,6 +133,102 @@ curl -i "http://127.0.0.1:8080/s/$ID"
 <img width="2070" height="1062" alt="image" src="https://github.com/user-attachments/assets/04624fca-0ea8-405f-9e38-1483a8c10e54" />
 
 ## 性能与压测 
+### 1. 读测试
+用最轻的接口 /healthz 做 30 秒压测，几乎不做业务，只测HTTP框架自身的开销（路由、解析、写回等）。
+```bash
+# 生成 2000 条短链，取出返回的 id 存到 ids.txt
+for i in $(seq 1 2000); do
+  curl -s -X POST http://127.0.0.1:8080/api/shorten \
+    -H 'Content-Type: application/json' \
+    -d '{"long_url":"https://example.com/page/'"$i"'","ttl":3600}' \
+  | grep -o '"id":"[^"]*"' | head -n1 | cut -d\" -f4
+done > ids.txt
 
+# 验证随机一条可跳转（应返回 301/302）
+HOT=$(shuf -n1 ids.txt | tr -d '\r\n')
+curl -g -i "http://127.0.0.1:8080/s/${HOT}" | sed -n '1,10p'
+
+
+#用 wrk 压这个 HOT
+wrk -t8 -c800 -d60s --timeout 10s --latency "http://127.0.0.1:8080/s/${HOT}"
+
+```
+
+# 测试结果如下：
+结果表明：
+-t8：8 个压测线程
+
+-c800：总共 800 个并发连接（平均每线程 ~100）
+
+-d60s：持续 60 秒
+
+--timeout 10s：单请求/连接超时 10 秒
+
+--latency：打印延迟分位（P50/P75/P90/P99）
+
+URL：固定读 GET /s/{id}（这里的 ${HOT} 是某个短链 id）
+
+输出关键读数（限流开启）
+
+Requests/sec: 4603.91（统计了全部响应：含 2xx/3xx 也含 4xx/5xx）
+
+Total: 276,524 次请求 / 60s
+
+Non-2xx or 3xx responses: 154,803（≈ 56% 被限流/出错，典型是 403/429）
+
+成功请求数: 276,524 − 154,803 = 121,721
+
+⇒ 成功吞吐（允许的 RPS）≈ 121,721 / 60 = 2,028.7 /s
+
+被限流吞吐 ≈ 154,803 / 60 = 2,580.1 /s
+
+Latency 分布（含被拒请求的总体分布）
+
+P50 ~ 150 ms，P90 ~ 234 ms，P99 ~ 1.08 s
+在限流/背压下，队列与连接抖动 + 日志 IO 会把尾延迟推高，这是预期现象；这些分位数不代表系统在“被接受的请求”上的真实能力。在配置的限流下，服务整体被“卡”在 ~2.0k 成功 RPS，其余 ~2.6k RPS 被按策略拒绝（403/429）。这说明限流策略生效；但该场景不适合评估框架极限吞吐/延迟。
+
+<img width="1977" height="441" alt="image" src="https://github.com/user-attachments/assets/c2264151-47ba-4b4d-b735-15478e29bde8" />
+
+
+### 2. 写测试
+```bash
+ -- post_shorten.lua
+ 构建一个脚本
+wrk.method = "POST"
+wrk.headers["Content-Type"] = "application/json"
+local counter = 0
+
+-- 每个请求构造一个唯一 long_url，避免重复键冲突
+request = function()
+  counter = counter + 1
+  local long = string.format("https://example.com/page/%d?utm=%d", counter, math.random(1e9))
+  local body = string.format('{"url":"%s","ttl":%d}', long, 3600)
+  return wrk.format(nil, "/api/shorten", nil, body)
+end
+
+压测
+wrk -t8 -c800 -d60s --timeout 10s --latency "http://127.0.0.1:8080/s/${HOT}"
+```
+结果说明：
+压测配置（限流开启）
+
+工具：wrk -t8 -c400 -d120s --latency -s post_shorten.lua http://127.0.0.1:8080
+
+说明：8 线程、400 并发、持续 120s，脚本每次请求 POST /api/shorten 创建短链（写压）。
+
+总吞吐（含被拒）： Requests/sec ≈ 4,910.82
+
+总请求数： 589,722
+
+非 2xx/3xx（被限/错误）： 347,682 → 拒绝率 ≈ 58.95%
+
+成功请求数： 589,722 − 347,682 = 242,040
+
+成功吞吐（≈允许的 RPS）： 242,040 / 120 ≈ 2,017 /s
+
+延迟分布（总体，含被拒）： P50 ≈ 76.5 ms，P90 ≈ 95.8 ms，P99 ≈ 190 ms
+
+在限流与背压下，整体分位数被抬高；评估真实性能应以“仅成功请求”分布为准。在启用令牌桶限流策略的情况下，服务被稳定“卡”在 ~2.0k 成功 RPS；其余 ~2.9k RPS 按策略返回 403/429（Retry-After），系统在高压+背压场景下保持稳定无崩溃。
+<img width="2046" height="510" alt="image" src="https://github.com/user-attachments/assets/08fb88a2-3f66-49c3-95a2-11d8e9afc428" />
 
 
