@@ -11,7 +11,6 @@
 
 - [特性 Highlights](#特性-highlights)
 - [总体架构 Architecture](#总体架构-architecture)
-- [快速开始 Quick Start](#快速开始-quick-start)
 - [构建与运行 Build & Run](#构建与运行-build--run)
 - [性能与压测 Benchmarking](#性能与压测-benchmarking)
 - [可观测性 Observability](#可观测性-observability)
@@ -76,14 +75,27 @@ Persistence
 - HttpCache 命中 **before 阶段短路返回**，after 阶段写入缓存
 - 路由正则预编译 + 轻量 Buffer，减少 alloc/拷贝
 
-## 快速开始 Quick Start
+## 构建与运行 Build & Run
+### 环境与依赖（Environment & Dependencies）
 
+- **操作系统（任一）**：
+Linux（Ubuntu 20.04+/Debian 11+/CentOS/RHEL 8+/Alma/ Rocky），
+macOS 12+（Apple Silicon/Intel）
+- **编译器**：GCC 9+ 或 Clang 12+（支持 C++17）
+- **构建工具**：CMake 3.16+
+- **网络库**：Muduo（已随工程封装/链接）
+- **可选依赖**：
+  - OpenSSL（HTTPS）
+  - hiredis（Redis）
+  - mysqlclient / mysql-connector-cpp（MySQL）
+
+### 运行：
 ### 1) 仅本地内存模式（零依赖）
 
 ```bash
 # 构建（Release）
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
+cmake -DCMAKE_BUILD_TYPE=Release  ..
+make
 
 # 运行（默认 8080）
 ./build/url_shortener 8080
@@ -92,21 +104,20 @@ cmake --build build -j
 ### 2)  Redis 模式
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DWITH_REDIS=ON
-cmake --build build -j
+cmake -DCMAKE_BUILD_TYPE=Release -DWITH_REDIS=ON
+make
+
+# 运行
+./build/url_shortener 8080
+```
+### 3) Redis + MySQL 模式（同时启用）
+```bash
+cmake -DCMAKE_BUILD_TYPE=Release -DWITH_REDIS=ON -DWITH_MYSQL=ON       -DMUDUO_LIBRARIES="-lmuduo_net -lmuduo_base -lpthread"       -DOPENSSL_LIBRARIES="-lssl -lcrypto"       ..
+make
 
 # 运行
 ./build/url_shortener 8080
 ```
 
-## 构建与运行 Build & Run
 
-### 依赖建议
-- **编译器**：GCC 9+ / Clang 12+（C++17）
-- **构建工具**：CMake 3.16+
-- **网络库**：Muduo（已随工程封装/链接）
-- **可选依赖**：
-  - OpenSSL（HTTPS）
-  - hiredis（Redis）
-  - mysqlclient / mysql-connector-cpp（MySQL）
 
