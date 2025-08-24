@@ -253,5 +253,17 @@ store_get_hit / store_get_miss / store_setnx_ok / store_setnx_conflict：底层�
 这些都在 apps/url_shortener/include/app/Metrics.h 里定义并在 /metrics 暴露。
 
 日志：Muduo 风格的 INFO/ERROR（连接建立/移除、EPIPE、限流返回等）。压测时建议把连接级别日志降噪或重定向到文件，避免干扰延迟。
+存活指针：
 
+```bash
+ curl -i http://127.0.0.1:8080/healthz | sed -n '1,10p'
+```
+
+<img width="1491" height="297" alt="image" src="https://github.com/user-attachments/assets/0bc81797-9162-46d5-9474-29f7fd8f0187" />
+
+```bash
+curl -s http://127.0.0.1:8080/metrics | sed -n '1,30p'
+```
+
+<img width="1671" height="630" alt="image" src="https://github.com/user-attachments/assets/e3d8f135-eb6b-401d-8b5a-dfc59294b24e" />
 
